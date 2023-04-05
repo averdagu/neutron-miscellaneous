@@ -12,12 +12,19 @@ while getopts 'd' OPTION; do
 done
 
 if [[ $DELETE == 1 ]]; then
+  echo "Deleting server"
   openstack server delete trunkvm
+  echo "Deleting network"
   openstack network trunk delete trunk
+  echo "Deleting ports"
   openstack port delete trunkport
-  openstack security group delete trunksec
+  openstack port delete trunksub
+  echo "Deleting router"
   openstack router remove subnet trunkr trunksub
   openstack router delete trunkr
+  echo "Deleting sec group"
+  openstack security group delete trunksec
+  echo "Deleting subnet"
   openstack subnet delete trunksub
 
 else
