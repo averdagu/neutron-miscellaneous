@@ -28,6 +28,21 @@ if [[ $DELETE == 1 ]]; then
   openstack subnet delete trunksub
 
 else
+  curl -k -L http://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img > cirros.img
+  openstack image list | grep -q 'trunkcirros'
+  rc=$?
+  if [[ $rc != 0 ]]; then
+    echo "Creating image"
+    openstack image create trunkcirros --file cirros.img --disk-format qcow2 --container-format bare --public
+  fi
+
+  openstack flavor list | grep -q 'trunkflavor'
+  rc=$?
+  if [[ $rc != 0 ]]; then
+    echo "Creating flavor"
+    openstack flavor create --disk 1 --ram 256 trunkflavor
+  fi
+
   openstack security group list | grep -q 'trunksec'
   rc=$?
   if [[ $rc != 0 ]]; then
@@ -79,7 +94,7 @@ else
   rc=$?
   if [[ $rc != 0 ]]; then
     echo "Creating server"
-    openstack server create --image cirros-0.5.2-x86_64-disk.img --flavor m1.micro --nic port-id=trunkport trunkvm
+    openstack server create --image trunkcirros --flavor trunkflavor --nic port-id=trunkport trunkvm
   fi
 fi
 
