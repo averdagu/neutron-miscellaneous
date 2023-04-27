@@ -1,5 +1,5 @@
 #!/bin/bash
-. overcloudrc
+. `find ~/ -name overcloudrc`
 
 DELETE=0
 
@@ -28,7 +28,9 @@ if [[ $DELETE == 1 ]]; then
   openstack subnet delete trunksub
 
 else
-  curl -k -L http://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img > cirros.img
+  if [[ ! -f cirros.img ]]; then
+    curl -k -L http://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img > cirros.img
+  fi
   openstack image list | grep -q 'trunkcirros'
   rc=$?
   if [[ $rc != 0 ]]; then
