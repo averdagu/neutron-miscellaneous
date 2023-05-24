@@ -114,7 +114,7 @@ else
     if [[ $rc != 0 ]]; then
       echo "Creating network trunk"
       seg_id=$((42+$suffix_number))
-      openstack network trunk create --parent-port trunkport --subport port=trunksub,segmentation-type=vlan,segmentation-id=$seg_id trunk
+      openstack network trunk create --parent-port trunkport${suffix_number} --subport port=trunksub,segmentation-type=vlan,segmentation-id=$seg_id trunk
     fi
 
     openstack server list | grep -q "trunkvm${suffix_number}"
