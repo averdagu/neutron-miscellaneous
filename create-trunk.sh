@@ -2,25 +2,46 @@
 . `find ~/ -name overcloudrc`
 
 DELETE=0
+FORCE=0
+suffix_number=0
+NUMBER=1
 
-while getopts 'd' OPTION; do
+while getopts 'd:Dn:' OPTION; do
   case $OPTION in
-    d)
+    D)
       DELETE=1
+      FORCE=1
+      ;;
+    d)
+      # Needs to be the suffix number
+      # TODO: Get full VM name and extract suffix
+      DELETE=1
+      name=$OPTARG
+      ;;
+    n)
+      NUMBER=$OPTARG
       ;;
   esac
 done
 
 if [[ $DELETE == 1 ]]; then
+  # Dinamic elements
+  if [[ $FORCE == 1 ]]; then
+    suffix_number=$(openstack server list -c Name -f value | grep trunkvm)
+  elif [[ ! -z $name ]]; then
+    suffix_number=$name
+  fi
   echo "Deleting server"
-  openstack server delete trunkvm
-  echo "Deleting network"
-  openstack network trunk delete trunk
-  echo "Deleting ports"
-  openstack port delete trunkport
-  openstack port delete trunksub
+  for s in $suffix_number; do
+    openstack server delete trunkvm${s#trunkvm}
+    echo "Deleting network"
+    openstack network trunk delete trunk${s#trunkvm}
+    echo "Deleting ports"
+    openstack port delete trunkport${s#trunkvm}
+    openstack port delete trunksub${s#trunkvm}
+    openstack router remove subnet trunkr trunksub${s#trunkvm}
+  done
   echo "Deleting router"
-  openstack router remove subnet trunkr trunksub
   openstack router delete trunkr
   echo "Deleting sec group"
   openstack security group delete trunksec
@@ -28,6 +49,7 @@ if [[ $DELETE == 1 ]]; then
   openstack subnet delete trunksub
 
 else
+  # STATIC ELEMENTS
   if [[ ! -f cirros.img ]]; then
     curl -k -L http://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img > cirros.img
   fi
@@ -77,26 +99,31 @@ else
     openstack router set --external-gateway nova trunkr
   fi
 
-  openstack port list | grep -q 'trunkport'
-  rc=$?
-  if [[ $rc != 0 ]]; then
-    echo "Creating port"
-    openstack port create --network trunknet --security-group trunksec trunkport
-    openstack port create --network trunknet --security-group trunksec trunksub
-  fi
+  # Dinamic elements
+  while [[ $suffix_number < $NUMBER ]]; do
+    openstack port list | grep -q "trunkport${suffix_number}"
+    rc=$?
+    if [[ $rc != 0 ]]; then
+      echo "Creating port"
+      openstack port create --network trunknet --security-group trunksec trunkport${suffix_number}
+      openstack port create --network trunknet --security-group trunksec trunksub${suffix_number}
+    fi
 
-  openstack network trunk list | grep -q 'trunk'
-  rc=$?
-  if [[ $rc != 0 ]]; then
-    echo "Creating network trunk"
-    openstack network trunk create --parent-port trunkport --subport port=trunksub,segmentation-type=vlan,segmentation-id=42 trunk
-  fi
+    openstack network trunk list | grep -q "trunk${suffix_number}"
+    rc=$?
+    if [[ $rc != 0 ]]; then
+      echo "Creating network trunk"
+      seg_id=$((42+$suffix_number))
+      openstack network trunk create --parent-port trunkport --subport port=trunksub,segmentation-type=vlan,segmentation-id=$seg_id trunk
+    fi
 
-  openstack server list | grep -q 'trunkvm'
-  rc=$?
-  if [[ $rc != 0 ]]; then
-    echo "Creating server"
-    openstack server create --image trunkcirros --flavor trunkflavor --nic port-id=trunkport trunkvm
-  fi
+    openstack server list | grep -q "trunkvm${suffix_number}"
+    rc=$?
+    if [[ $rc != 0 ]]; then
+      echo "Creating server"
+      openstack server create --image trunkcirros --flavor trunkflavor --nic port-id=trunkport${suffix_number} trunkvm${suffix_number}
+    fi
+    suffix_number=$((suffix_number+1))
+  done
 fi
 
