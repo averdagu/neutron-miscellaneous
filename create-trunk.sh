@@ -39,9 +39,9 @@ if [[ $DELETE == 1 ]]; then
     echo "Deleting ports"
     openstack port delete trunkport${s#trunkvm}
     openstack port delete trunksub${s#trunkvm}
-    openstack router remove subnet trunkr trunksub${s#trunkvm}
   done
   echo "Deleting router"
+  openstack router remove subnet trunkr trunksub
   openstack router delete trunkr
   echo "Deleting sec group"
   openstack security group delete trunksec
@@ -114,7 +114,7 @@ else
     if [[ $rc != 0 ]]; then
       echo "Creating network trunk"
       seg_id=$((42+$suffix_number))
-      openstack network trunk create --parent-port trunkport${suffix_number} --subport port=trunksub,segmentation-type=vlan,segmentation-id=$seg_id trunk
+      openstack network trunk create --parent-port trunkport${suffix_number} --subport port=trunksub${suffix_number},segmentation-type=vlan,segmentation-id=$seg_id trunk${suffix_number}
     fi
 
     openstack server list | grep -q "trunkvm${suffix_number}"
